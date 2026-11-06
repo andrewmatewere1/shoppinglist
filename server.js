@@ -1,5 +1,12 @@
-const dns = require('dns');
-dns.setServers(['8.8.8.8', '1.1.1.1']);
+// On local networks, configure DNS to resolve MongoDB SRV records reliably
+if (!process.env.VERCEL) {
+  try {
+    const dns = require('dns');
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+  } catch (e) {
+    // ignore if not permitted
+  }
+}
 
 require('dotenv').config();
 
@@ -13,6 +20,29 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/shoppi
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------- Database Connection (Serverless-friendly) ----------
+let cachedPromise = null;
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  if (!cachedPromise) {
+    cachedPromise = mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 8000,
+    });
+  }
+  await cachedPromise;
+};
+
+// Ensure database is connected for all API requests
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('MongoDB connection failed:', err.message);
+    res.status(500).json({ error: 'Database connection failed: ' + err.message });
+  }
+});
 
 // ---------- Schema ----------
 const itemSchema = new mongoose.Schema(
@@ -115,15 +145,24 @@ app.delete('/api/items', async (req, res) => {
   }
 });
 
-// ---------- Start ----------
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => console.log(`Shopping list running at http://localhost:${PORT}`));
-  })
-  .catch((err) => {
-    console.error('MongoDB connection failed:', err.message);
-    console.error('Check MONGODB_URI in your .env file and that MongoDB is running.');
-    process.exit(1);
-  });
+// Fallback to index.html for root or non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ---------- Start Local Server ----------
+if (require.main === module && !process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      console.log('Connected to MongoDB');
+      app.listen(PORT, () => console.log(`Shopping list running at http://localhost:${PORT}`));
+    })
+    .catch((err) => {
+      console.error('MongoDB connection failed:', err.message);
+      console.error('Check MONGODB_URI in your .env file and that MongoDB is running.');
+      process.exit(1);
+    });
+}
+
+// Export Express app for Vercel Serverless Function
+module.exports = app;
