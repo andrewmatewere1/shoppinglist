@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shopping List</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="card">
+    <h1>🛒 Shopping List</h1>
+
+    <form id="add-form" autocomplete="off">
+      <input id="name" type="text" placeholder="Item name" required maxlength="120" />
+      <input id="quantity" type="number" min="1" value="1" aria-label="Quantity" />
+      <input id="category" type="text" placeholder="Category (optional)" maxlength="60" list="categories" />
+      <datalist id="categories"></datalist>
+      <button type="submit">Add</button>
+    </form>
+
+    <div class="toolbar">
+      <select id="filter" aria-label="Filter">
+        <option value="all">All items</option>
+        <option value="false">To buy</option>
+        <option value="true">Purchased</option>
+      </select>
+      <button id="refresh" type="button" class="secondary">Refresh from DB</button>
+      <button id="clear" type="button" class="secondary danger">Clear purchased</button>
+    </div>
+
+    <p id="status" class="status" role="status"></p>
+    <ul id="list"></ul>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
